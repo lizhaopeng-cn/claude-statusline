@@ -237,15 +237,21 @@ function formatBudgetLine(results) {
 }
 
 // ── 渲染 tokens 行
-// CCR 的 inputTokens 含义不稳（有时是本次请求的 input，有时含 cache read），
-// 只有 contextPercent 是 CC 给的「当前窗口占用%」，是最可靠的真相源。
-// 所以 used 直接按 contextPercent × total 反推。
+// 算法跟 statusline.ts 对齐：
+//   used  = input_tokens + cache_creation_input_tokens + cache_read_input_tokens
+//   total = context_window_size
+//   pct   = round(used / total * 100)
+// CCR 的 variables 字段是驼峰命名，snake_case 作 fallback 兜其它版本。
 function formatTokenLine(v) {
-  const totalRaw = parseNum(v.contextWindowSize);
+  const totalRaw = parseNum(v.contextWindowSize) || parseNum(v.context_window_size);
   const total = totalRaw > 0 ? totalRaw : 200_000;
 
-  const pct = Math.round(parseNum(v.contextPercent));
-  const used = Math.round((pct / 100) * total);
+  const inTok       = parseNum(v.inputTokens)              || parseNum(v.input_tokens);
+  const cacheCreate = parseNum(v.cacheCreationInputTokens) || parseNum(v.cache_creation_input_tokens);
+  const cacheRead   = parseNum(v.cacheReadInputTokens)     || parseNum(v.cache_read_input_tokens);
+
+  const used = inTok + cacheCreate + cacheRead;
+  const pct = total > 0 ? Math.round((used / total) * 100) : 0;
 
   const color = pct < 40 ? C.reset : pct < 60 ? C.green : pct < 80 ? C.yellow : C.red;
   return `${color}tokens: ${fmtNum(used)} / ${fmtNum(total)} (${pct}%)${C.reset}`;
