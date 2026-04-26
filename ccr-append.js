@@ -1,14 +1,13 @@
 /**
- * CCR StatusLine script：输出四行
+ * CCR StatusLine script：输出三行
  *
- *   第 1 行（身份）： workDir  git  model
- *   第 2 行（运行时）：ctx%  ↑in  ↓out  ⚡speed  💰cost  ⏱duration
- *   第 3 行（预算）：openrouter: $25.84 / $500    openrouter1: $0.00 / $10
- *   第 4 行（tokens）：tokens: 139.6k / 200.0k (70%)
+ *   第 1 行（身份）： model  workDir  git
+ *   第 2 行（花费）： 💰cost  or: … / …    or1: … / …
+ *   第 3 行（用量）： ctx%  ↑in  ↓out  tokens: used / total (pct%)
  *
  * 已知限制：Claude Code 2.1.119 的 statusLine 渲染外层是 <Text wrap="truncate">，
  * Ink 5 的 truncate 模式遇到 '\n' 会把后续行整段丢掉，只渲染第 1 行。所以窄窗口下
- * 只看得到第 1 行，宽窗口下四行都能看到。每行独立按终端宽度 `…` 截断。
+ * 只看得到第 1 行，宽窗口下三行都能看到。每行独立按终端宽度 `…` 截断。
  *
  * 用法：CCR 的 StatusLine.default.modules 里只留一个 { type:"script", scriptPath } 模块指向本文件。
  */
@@ -198,57 +197,47 @@ function mod(icon, text, color) {
   return `${c}${prefix}${t}${C.reset}`;
 }
 
-// 第 1 行（身份）：workDir  git  model
+// 第 1 行（身份）：model  workDir  git
 function formatIdentityLine(v) {
   const parts = [];
-  parts.push(mod("\u{F024B}", v.workDirName, "bright_blue"));
-  parts.push(mod("",    v.gitBranch,   "bright_magenta"));
   parts.push(mod("\u{F06A9}", shortenModel(v.model), "bright_cyan"));
+  parts.push(mod("\u{F024B}", v.workDirName, "bright_blue"));
+  parts.push(mod("\u{E725}",  v.gitBranch,   "bright_magenta"));
   return parts.filter(Boolean).join(" ");
 }
 
-// 第 2 行（运行时）：ctx%  ↑in  ↓out  ⚡speed  💰cost  ⏱duration
-function formatRuntimeLine(v) {
+// 第 2 行（花费）：💰 cost    or: $x / $y    or1: $x / $y
+function formatCostLine(v, results) {
+  const parts = [];
+  parts.push(mod("\u{1F4B0}", v.cost, "bright_red"));
+  if (results.length > 0) {
+    const budgets = results.map(({ name, info }) => {
+      if (!info) return `${name}: (err)`;
+      return `${name}: ${fmtMoney(info.usage)} / ${fmtLimit(info.limit)}`;
+    });
+    parts.push(budgets.join("    "));
+  }
+  return parts.filter(Boolean).join("  ");
+}
+
+// 第 3 行（用量）：ctx%  ↑in  ↓out  tokens: used / total (pct%)
+// used 按 contextPercent × total 反推，跟 /context 面板对齐。
+function formatUsageLine(v) {
   const parts = [];
 
   const pctTxt = v.contextPercent ? `${v.contextPercent}%` : "";
   parts.push(mod("\u{F024D}", pctTxt, "bright_yellow"));
-
   parts.push(mod("↑", v.inputTokens,  "bright_green"));
   parts.push(mod("↓", v.outputTokens, "bright_yellow"));
 
-  const speed = v.tokenSpeed ? `${v.tokenSpeed}t/s` : "";
-  parts.push(mod("⚡", speed, "bright_white"));
-
-  parts.push(mod("\u{1F4B0}", v.cost,     "bright_red"));
-  parts.push(mod("⏱",    v.duration, "white"));
-
-  return parts.filter(Boolean).join(" ");
-}
-
-// ── 渲染 provider 预算行（与 statusline.ts 一致：金额不染色）
-function formatBudgetLine(results) {
-  if (results.length === 0) return "";
-  const parts = results.map(({ name, info }) => {
-    if (!info) return `${name}: (err)`;
-    return `${name}: ${fmtMoney(info.usage)} / ${fmtLimit(info.limit)}`;
-  });
-  return parts.join("    ");
-}
-
-// ── 渲染 tokens 行
-// CCR 的 inputTokens 含义不稳（有时是本次请求的 input，有时含 cache read），
-// 只有 contextPercent 是 CC 给的「当前窗口占用%」，是最可靠的真相源。
-// 所以 used 直接按 contextPercent × total 反推。
-function formatTokenLine(v) {
   const totalRaw = parseNum(v.contextWindowSize);
   const total = totalRaw > 0 ? totalRaw : 200_000;
-
   const pct = Math.round(parseNum(v.contextPercent));
   const used = Math.round((pct / 100) * total);
-
   const color = pct < 40 ? C.reset : pct < 60 ? C.green : pct < 80 ? C.yellow : C.red;
-  return `${color}tokens: ${fmtNum(used)} / ${fmtNum(total)} (${pct}%)${C.reset}`;
+  parts.push(`${color}tokens: ${fmtNum(used)} / ${fmtNum(total)} (${pct}%)${C.reset}`);
+
+  return parts.filter(Boolean).join(" ");
 }
 
 module.exports = async function (variables, options) {
@@ -269,9 +258,8 @@ module.exports = async function (variables, options) {
     const cols = getTermCols();
     const lines = [
       formatIdentityLine(v),
-      formatRuntimeLine(v),
-      formatBudgetLine(results),
-      formatTokenLine(v),
+      formatCostLine(v, results),
+      formatUsageLine(v),
     ].filter(Boolean);
 
     // 每行独立按终端宽度截断，再用 \n 拼接。
