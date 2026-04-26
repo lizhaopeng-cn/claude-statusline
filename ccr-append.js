@@ -2,8 +2,8 @@
  * CCR StatusLine script：输出三行
  *
  *   第 1 行（身份）： model  workDir  git
- *   第 2 行（花费）： 💰cost  or: … / …    or1: … / …
- *   第 3 行（用量）： ctx%  ↑in  ↓out  tokens: used / total (pct%)
+ *   第 2 行（用量）： ├ ↑in  ↓out  tokens: used / total (pct%)  ██░░░░░░░░
+ *   第 3 行（花费）： └ 💰cost  or: … / …  or1: … / …
  *
  * 已知限制：Claude Code 2.1.119 的 statusLine 渲染外层是 <Text wrap="truncate">，
  * Ink 5 的 truncate 模式遇到 '\n' 会把后续行整段丢掉，只渲染第 1 行。所以窄窗口下
@@ -41,6 +41,7 @@ const C = {
   bright_green:    "\x1b[92m",
   bright_red:      "\x1b[91m",
   bright_white:    "\x1b[97m",
+  orange:          "\x1b[38;5;208m",
 };
 
 // ── ANSI-aware 单行截断（和 statusline.ts 里的保持一致）
@@ -198,46 +199,53 @@ function mod(icon, text, color) {
 }
 
 // 第 1 行（身份）：model  workDir  git
+// 每个栏目内部：图标 + " " + 文字（1 格）；栏目之间：2 格。
 function formatIdentityLine(v) {
   const parts = [];
   parts.push(mod("\u{F06A9}", shortenModel(v.model), "bright_cyan"));
   parts.push(mod("\u{F024B}", v.workDirName, "bright_blue"));
   parts.push(mod("\u{E725}",  v.gitBranch,   "bright_magenta"));
-  return parts.filter(Boolean).join(" ");
+  return parts.filter(Boolean).join("  ");
 }
 
-// 第 2 行（花费）：💰 cost    or: $x / $y    or1: $x / $y
+// 第 2 行（用量）：├ ↑in  ↓out  󰉍 used / total (pct%)  ██░░░░░░░░
+// used 按 contextPercent × total 反推，跟 /context 面板对齐。
+// 染色阈值：≤60 绿 / ≤80 黄 / >80 红（tokens 数字和进度条同色）。
+function formatUsageLine(v) {
+  const parts = [];
+  parts.push(`${C.dim}├${C.reset}`);
+
+  parts.push(mod("↑", v.inputTokens,  "bright_green"));
+  parts.push(mod("↓", v.outputTokens, "orange"));
+
+  const totalRaw = parseNum(v.contextWindowSize);
+  const total = totalRaw > 0 ? totalRaw : 200_000;
+  const pct = Math.round(parseNum(v.contextPercent));
+  const used = Math.round((pct / 100) * total);
+  const color = pct <= 60 ? C.green : pct <= 80 ? C.yellow : C.red;
+  parts.push(`${color}\u{F024D} ${fmtNum(used)} / ${fmtNum(total)} (${pct}%)${C.reset}`);
+
+  // 10 格进度条：前 filled 格用 █、剩余用 ░，整体同色。每 10% 算满一格（向下取整）。
+  const filled = Math.max(0, Math.min(10, Math.floor(pct / 10)));
+  const bar = "█".repeat(filled) + "░".repeat(10 - filled);
+  parts.push(`${color}${bar}${C.reset}`);
+
+  return parts.filter(Boolean).join("  ");
+}
+
+// 第 3 行（花费）：└ 💰 cost  or: $x / $y  or1: $x / $y
 function formatCostLine(v, results) {
   const parts = [];
+  parts.push(`${C.dim}└${C.reset}`);
   parts.push(mod("\u{1F4B0}", v.cost, "bright_red"));
   if (results.length > 0) {
     const budgets = results.map(({ name, info }) => {
       if (!info) return `${name}: (err)`;
       return `${name}: ${fmtMoney(info.usage)} / ${fmtLimit(info.limit)}`;
     });
-    parts.push(budgets.join("    "));
+    parts.push(budgets.join("  "));
   }
   return parts.filter(Boolean).join("  ");
-}
-
-// 第 3 行（用量）：ctx%  ↑in  ↓out  tokens: used / total (pct%)
-// used 按 contextPercent × total 反推，跟 /context 面板对齐。
-function formatUsageLine(v) {
-  const parts = [];
-
-  const pctTxt = v.contextPercent ? `${v.contextPercent}%` : "";
-  parts.push(mod("\u{F024D}", pctTxt, "bright_yellow"));
-  parts.push(mod("↑", v.inputTokens,  "bright_green"));
-  parts.push(mod("↓", v.outputTokens, "bright_yellow"));
-
-  const totalRaw = parseNum(v.contextWindowSize);
-  const total = totalRaw > 0 ? totalRaw : 200_000;
-  const pct = Math.round(parseNum(v.contextPercent));
-  const used = Math.round((pct / 100) * total);
-  const color = pct < 40 ? C.reset : pct < 60 ? C.green : pct < 80 ? C.yellow : C.red;
-  parts.push(`${color}tokens: ${fmtNum(used)} / ${fmtNum(total)} (${pct}%)${C.reset}`);
-
-  return parts.filter(Boolean).join(" ");
 }
 
 module.exports = async function (variables, options) {
@@ -258,8 +266,8 @@ module.exports = async function (variables, options) {
     const cols = getTermCols();
     const lines = [
       formatIdentityLine(v),
-      formatCostLine(v, results),
       formatUsageLine(v),
+      formatCostLine(v, results),
     ].filter(Boolean);
 
     // 每行独立按终端宽度截断，再用 \n 拼接。
