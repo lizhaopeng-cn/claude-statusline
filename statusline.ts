@@ -338,7 +338,7 @@ async function main(): Promise<void> {
 
   // L3：├   $cost / $discount    $usage / $limit
   const costStr = `${C.bright_yellow} $${state.total_cost.toFixed(4)}${C.reset}` +
-    ` / $${state.total_cache_discount.toFixed(2)}`;
+    ` \x1b[9m($${state.total_cache_discount.toFixed(2)})\x1b[29m`;
   const line3Parts: string[] = [`${C.dim}├${C.reset}`, costStr];
   if (budgetStr) line3Parts.push(budgetStr);
   const line3 = line3Parts.join('  ');
