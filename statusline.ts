@@ -144,37 +144,6 @@ function shortModelName(model: string): string {
   return model.replace(/^[^/]+\//, '').replace(/-\d{8}$/, '');
 }
 
-function visibleLen(s: string): number {
-  return s.replace(/\x1b\[[0-9;]*m/g, '').length;
-}
-
-function truncateLine(s: string, max: number): string {
-  if (max <= 0 || visibleLen(s) <= max) return s;
-  let out = '';
-  let visible = 0;
-  for (let i = 0; i < s.length; i++) {
-    if (s[i] === '\x1b' && s[i + 1] === '[') {
-      const end = s.indexOf('m', i);
-      if (end > 0) {
-        out += s.slice(i, end + 1);
-        i = end;
-        continue;
-      }
-    }
-    if (visible >= max - 1) {
-      out += '…';
-      break;
-    }
-    out += s[i];
-    visible++;
-  }
-  return out + '\x1b[0m';
-}
-
-function truncateAllLines(s: string, max: number): string {
-  return s.split('\n').map((line) => truncateLine(line, max)).join('\n');
-}
-
 interface KeyInfo {
   usage: number;
   limit: number | null;
@@ -266,9 +235,9 @@ async function main(): Promise<void> {
     const reset = '\x1b[0m';
 
     if (fetchFailed === 0) {
-      statusIndicator = `usage tracking: ${green}up-to-date${reset}`;
+      statusIndicator = `\nusage tracking: ${green}up-to-date${reset}`;
     } else {
-      statusIndicator = `usage tracking: ${red}behind${reset}`;
+      statusIndicator = `\nusage tracking: ${red}behind${reset}`;
     }
   }
 
@@ -289,37 +258,28 @@ async function main(): Promise<void> {
     const color = pct < 40 ? reset : pct < 60 ? green : pct < 80 ? yellow : red;
 
     const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
-    tokenStr = `${color}tokens: ${fmt(used)} / ${fmt(total)} (${pct}%)${reset}`;
+    tokenStr = `    ${color}tokens: ${fmt(used)} / ${fmt(total)} (${pct}%)${reset}`;
   }
 
   const keyInfo = await fetchKeyInfo(apiKey);
-  let budgetStr = '';
+  let keyLine = '';
   if (keyInfo) {
     const usageStr = `$${keyInfo.usage.toFixed(2)}`;
     const limitStr = keyInfo.limit !== null ? `$${keyInfo.limit.toFixed(0)}` : '∞';
-    budgetStr = `budget: ${usageStr} / ${limitStr}`;
+    keyLine = `\nbudget: ${usageStr} / ${limitStr}${tokenStr}`;
+  } else if (tokenStr) {
+    keyLine = `\ntokens:${tokenStr}`;
   }
 
-  const cols = Number(process.env.COLUMNS) || process.stdout.columns || 120;
-
-  // Output three lines. Known limitation: Claude Code 2.1.119 renders statusLine
-  // inside <Text wrap="truncate">, and Ink 5's truncate mode drops everything
-  // after the first '\n', so narrow terminals only see line 1. Wide terminals
-  // get all three. Each line is independently truncated to the terminal width.
-  const head = state.last_provider
-    ? `${state.last_provider}: ${shortModel} - $${state.total_cost.toFixed(4)} - cache discount: $${state.total_cache_discount.toFixed(2)}`
-    : `$${state.total_cost.toFixed(4)} - cache discount: $${state.total_cache_discount.toFixed(2)}`;
-
-  const line1 = [head, statusIndicator].filter(Boolean).join('  ');
-  const line2 = budgetStr;
-  const line3 = tokenStr;
-
-  const output = [line1, line2, line3]
-    .filter(Boolean)
-    .map((line) => truncateLine(line, cols))
-    .join('\n');
-
-  process.stdout.write(output);
+  if (state.last_provider) {
+    process.stdout.write(
+      `${state.last_provider}: ${shortModel} - $${state.total_cost.toFixed(4)} - cache discount: $${state.total_cache_discount.toFixed(2)}${keyLine}${statusIndicator}`,
+    );
+  } else {
+    process.stdout.write(
+      `$${state.total_cost.toFixed(4)} - cache discount: $${state.total_cache_discount.toFixed(2)}${keyLine}${statusIndicator}`,
+    );
+  }
 }
 
 main().catch((err) => {
