@@ -17,10 +17,21 @@
  */
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { execSync } from 'node:child_process';
+import { basename } from 'node:path';
 
 interface StatuslineInput {
   session_id: string;
   transcript_path: string;
+  cwd?: string;
+  workspace?: {
+    current_dir?: string;
+    project_dir?: string;
+  };
+  model?: {
+    id?: string;
+    display_name?: string;
+  };
   context_window?: {
     context_window_size: number;
     current_usage: {
@@ -29,6 +40,35 @@ interface StatuslineInput {
       cache_read_input_tokens: number;
     };
   };
+}
+
+// ── 颜色常量（跟 ccr-append.js 对齐）
+const C = {
+  reset: '\x1b[0m',
+  dim: '\x1b[2m',
+  green: '\x1b[32m',
+  yellow: '\x1b[33m',
+  red: '\x1b[31m',
+  bright_blue: '\x1b[94m',
+  bright_magenta: '\x1b[95m',
+  bright_cyan: '\x1b[96m',
+  bright_red: '\x1b[91m',
+  orange: '\x1b[38;5;208m',
+};
+
+function gitBranch(cwd: string): string {
+  try {
+    if (!existsSync(cwd)) return '';
+    const out = execSync('git rev-parse --abbrev-ref HEAD', {
+      cwd,
+      stdio: ['ignore', 'pipe', 'ignore'],
+      encoding: 'utf-8',
+      timeout: 500,
+    });
+    return (out || '').trim();
+  } catch {
+    return '';
+  }
 }
 
 interface GenerationData {
@@ -227,59 +267,77 @@ async function main(): Promise<void> {
 
   saveState(statePath, state);
 
-  const shortModel = shortModelName(state.last_model);
+  // 模型名优先用累计 state（真实 OpenRouter 返回的模型 ID），
+  // 没有就退回到 CC 通过 stdin 传的 model.display_name / model.id，
+  // 这样即使还没发过真实请求，L1 也能显示「󰚩 <模型名>」而不是孤零零一个图标。
+  const stateModel = shortModelName(state.last_model);
+  const ccModel = shortModelName(input?.model?.id ?? '');
+  const shortModel = stateModel || ccModel || input?.model?.display_name || '';
+
+  // usage tracking 状态指示
   let statusIndicator = '';
   if (newIds.length > 0) {
-    const green = '\x1b[32m';
-    const red = '\x1b[31m';
-    const reset = '\x1b[0m';
-
     if (fetchFailed === 0) {
-      statusIndicator = `\nusage tracking: ${green}up-to-date${reset}`;
+      statusIndicator = `\nusage tracking: ${C.green}up-to-date${C.reset}`;
     } else {
-      statusIndicator = `\nusage tracking: ${red}behind${reset}`;
+      statusIndicator = `\nusage tracking: ${C.red}behind${C.reset}`;
     }
   }
 
-  // Build token usage string from context_window in stdin
-  let tokenStr = '';
+  // cwd / git branch
+  const cwd = input?.cwd ?? input?.workspace?.current_dir ?? process.cwd();
+  const workDir = basename(cwd) || cwd;
+  const branch = gitBranch(cwd);
+
+  // OpenRouter key 预算
+  const keyInfo = await fetchKeyInfo(apiKey);
+  const budgetStr = keyInfo
+    ? `$${keyInfo.usage.toFixed(2)} / ${keyInfo.limit !== null ? `$${keyInfo.limit.toFixed(0)}` : '∞'}`
+    : '';
+
+  // tokens & 进度条（用量 + 10 格进度条，染色阈值跟 ccr-append.js 对齐）
+  // stdin 没传 context_window 时退化成「0 / ? (0%) ░░░░░░░░░░」占位，保证 L4 永远可见。
+  const fmtTok = (n: number) =>
+    n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M` :
+    n >= 1_000     ? `${(n / 1_000).toFixed(1)}k` : `${n}`;
   const cw = input?.context_window;
+  let used = 0, total = 0, pct = 0;
   if (cw?.current_usage && cw?.context_window_size) {
-    const used = cw.current_usage.input_tokens
+    used = cw.current_usage.input_tokens
       + cw.current_usage.cache_creation_input_tokens
       + cw.current_usage.cache_read_input_tokens;
-    const total = cw.context_window_size;
-    const pct = Math.round((used / total) * 100);
-
-    const green = '\x1b[32m';
-    const yellow = '\x1b[33m';
-    const red = '\x1b[31m';
-    const reset = '\x1b[0m';
-    const color = pct < 40 ? reset : pct < 60 ? green : pct < 80 ? yellow : red;
-
-    const fmt = (n: number) => n >= 1000 ? `${(n / 1000).toFixed(1)}k` : `${n}`;
-    tokenStr = `    ${color}tokens: ${fmt(used)} / ${fmt(total)} (${pct}%)${reset}`;
+    total = cw.context_window_size;
+    pct = Math.round((used / total) * 100);
   }
+  const usageColor = pct <= 60 ? C.green : pct <= 80 ? C.yellow : C.red;
+  const filled = Math.max(0, Math.min(10, Math.floor(pct / 10)));
+  const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
+  const totalText = total > 0 ? fmtTok(total) : '?';
+  const usageLine = `${usageColor}\u{F024D} ${fmtTok(used)} / ${totalText} (${pct}%)${C.reset}  ${usageColor}${bar}${C.reset}`;
 
-  const keyInfo = await fetchKeyInfo(apiKey);
-  let keyLine = '';
-  if (keyInfo) {
-    const usageStr = `$${keyInfo.usage.toFixed(2)}`;
-    const limitStr = keyInfo.limit !== null ? `$${keyInfo.limit.toFixed(0)}` : '∞';
-    keyLine = `\nbudget: ${usageStr} / ${limitStr}${tokenStr}`;
-  } else if (tokenStr) {
-    keyLine = `\ntokens:${tokenStr}`;
-  }
+  // L1：󰉋 workDir   main（workDir 亮蓝、branch 亮洋红）
+  const line1Parts: string[] = [];
+  if (workDir) line1Parts.push(`${C.bright_blue}\u{F024B} ${workDir}${C.reset}`);
+  if (branch) line1Parts.push(`${C.bright_magenta}\u{E725} ${branch}${C.reset}`);
+  const line1 = line1Parts.join('  ');
 
-  if (state.last_provider) {
-    process.stdout.write(
-      `${state.last_provider}: ${shortModel} - $${state.total_cost.toFixed(4)} - cache discount: $${state.total_cache_discount.toFixed(2)}${keyLine}${statusIndicator}`,
-    );
-  } else {
-    process.stdout.write(
-      `$${state.total_cost.toFixed(4)} - cache discount: $${state.total_cache_discount.toFixed(2)}${keyLine}${statusIndicator}`,
-    );
-  }
+  // L2：├ 󰚩 provider: model（图标 + provider + model 都用 bright_cyan）
+  const providerPart = state.last_provider ? `${C.bright_cyan}${state.last_provider}:${C.reset} ` : '';
+  const modelPart = shortModel ? `${C.bright_cyan}${shortModel}${C.reset}` : '';
+  const line2 = `${C.dim}├${C.reset}  ${C.bright_cyan}\u{F06A9}${C.reset} ${providerPart}${modelPart}`;
+
+  // L3：├   $cost / $discount    $usage / $limit
+  const costStr = `${C.bright_red} $${state.total_cost.toFixed(4)}${C.reset}` +
+    ` / ${C.orange}$${state.total_cache_discount.toFixed(2)}${C.reset}`;
+  const line3Parts: string[] = [`${C.dim}├${C.reset}`, costStr];
+  if (budgetStr) line3Parts.push(budgetStr);
+  const line3 = line3Parts.join('  ');
+
+  // L4：└  󰉍 used / total (pct%) ██░░░░░░░░（永远显示，无 context_window 就占位 0 / ?）
+  const line4 = `${C.dim}└${C.reset}  ${usageLine}`;
+
+  const lines = [line1, line2, line3, line4].filter(Boolean);
+  process.stdout.write(lines.join('\n') + statusIndicator);
 }
 
 main().catch((err) => {
