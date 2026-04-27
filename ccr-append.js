@@ -1,13 +1,14 @@
 /**
- * CCR StatusLine script：输出三行
+ * CCR StatusLine script：输出四行
  *
- *   第 1 行（身份）： model  workDir  git
- *   第 2 行（用量）： ├ ↑in  ↓out  tokens: used / total (pct%)  ██░░░░░░░░
- *   第 3 行（花费）： └ 💰cost  or: … / …  or1: … / …
+ *   第 1 行（目录）： 󰉋 workDir   main
+ *   第 2 行（模型）： ├ 󰚩 model
+ *   第 3 行（花费）： ├  cost  or: … / …  or1: … / …
+ *   第 4 行（用量）： └ ↑in  ↓out  󰉍 used / total (pct%)  ██░░░░░░░░
  *
  * 已知限制：Claude Code 2.1.119 的 statusLine 渲染外层是 <Text wrap="truncate">，
  * Ink 5 的 truncate 模式遇到 '\n' 会把后续行整段丢掉，只渲染第 1 行。所以窄窗口下
- * 只看得到第 1 行，宽窗口下三行都能看到。每行独立按终端宽度 `…` 截断。
+ * 只看得到第 1 行，宽窗口下四行都能看到。每行独立按终端宽度 `…` 截断。
  *
  * 用法：CCR 的 StatusLine.default.modules 里只留一个 { type:"script", scriptPath } 模块指向本文件。
  */
@@ -198,22 +199,45 @@ function mod(icon, text, color) {
   return `${c}${prefix}${t}${C.reset}`;
 }
 
-// 第 1 行（身份）：model  workDir  git
+// 第 1 行（目录）：󰉋 workDir   main
 // 每个栏目内部：图标 + " " + 文字（1 格）；栏目之间：2 格。
-function formatIdentityLine(v) {
+function formatPathLine(v) {
   const parts = [];
-  parts.push(mod("\u{F06A9}", shortenModel(v.model), "bright_cyan"));
   parts.push(mod("\u{F024B}", v.workDirName, "bright_blue"));
   parts.push(mod("\u{E725}",  v.gitBranch,   "bright_magenta"));
   return parts.filter(Boolean).join("  ");
 }
 
-// 第 2 行（用量）：├ ↑in  ↓out  󰉍 used / total (pct%)  ██░░░░░░░░
+// 第 2 行（模型）：├  󰚩 model
+function formatModelLine(v) {
+  const parts = [];
+  parts.push(`${C.dim}├${C.reset}`);
+  parts.push(mod("\u{F06A9}", shortenModel(v.model), "bright_cyan"));
+  return parts.filter(Boolean).join("  ");
+}
+
+// 第 3 行（花费）：├   cost  or: $x / $y  or1: $x / $y
+// 用 nerd-font 的 dollar-sign () 代替原 emoji 💰，单列宽度跟其它图标对齐。
+function formatCostLine(v, results) {
+  const parts = [];
+  parts.push(`${C.dim}├${C.reset}`);
+  parts.push(mod("\u{F155}", v.cost, "bright_red"));
+  if (results.length > 0) {
+    const budgets = results.map(({ name, info }) => {
+      if (!info) return `${name}: (err)`;
+      return `${name}: ${fmtMoney(info.usage)} / ${fmtLimit(info.limit)}`;
+    });
+    parts.push(budgets.join("  "));
+  }
+  return parts.filter(Boolean).join("  ");
+}
+
+// 第 4 行（用量）：└  ↑in  ↓out  󰉍 used / total (pct%)  ██░░░░░░░░
 // used 按 contextPercent × total 反推，跟 /context 面板对齐。
 // 染色阈值：≤60 绿 / ≤80 黄 / >80 红（tokens 数字和进度条同色）。
 function formatUsageLine(v) {
   const parts = [];
-  parts.push(`${C.dim}├${C.reset}`);
+  parts.push(`${C.dim}└${C.reset}`);
 
   parts.push(mod("↑", v.inputTokens,  "bright_green"));
   parts.push(mod("↓", v.outputTokens, "orange"));
@@ -230,21 +254,6 @@ function formatUsageLine(v) {
   const bar = "█".repeat(filled) + "░".repeat(10 - filled);
   parts.push(`${color}${bar}${C.reset}`);
 
-  return parts.filter(Boolean).join("  ");
-}
-
-// 第 3 行（花费）：└ 💰 cost  or: $x / $y  or1: $x / $y
-function formatCostLine(v, results) {
-  const parts = [];
-  parts.push(`${C.dim}└${C.reset}`);
-  parts.push(mod("\u{1F4B0}", v.cost, "bright_red"));
-  if (results.length > 0) {
-    const budgets = results.map(({ name, info }) => {
-      if (!info) return `${name}: (err)`;
-      return `${name}: ${fmtMoney(info.usage)} / ${fmtLimit(info.limit)}`;
-    });
-    parts.push(budgets.join("  "));
-  }
   return parts.filter(Boolean).join("  ");
 }
 
@@ -265,9 +274,10 @@ module.exports = async function (variables, options) {
 
     const cols = getTermCols();
     const lines = [
-      formatIdentityLine(v),
-      formatUsageLine(v),
+      formatPathLine(v),
+      formatModelLine(v),
       formatCostLine(v, results),
+      formatUsageLine(v),
     ].filter(Boolean);
 
     // 每行独立按终端宽度截断，再用 \n 拼接。
