@@ -30,9 +30,11 @@ const DEBUG_DUMP = false;
 // dim              — L2/L3/L4 前缀 ├ / └ 的树形符
 // green/yellow/red — L4 tokens 数字 + 进度条按 ≤60/≤80/>80 阈值染色
 // bright_blue      — L1 的 󰉋 workDir
-// bright_magenta   — L1 的  branch
-// bright_cyan      — L2 的 󰚩 model
-// bright_red       — L3 的  $cost（CCR 估算花费）
+// bright_green     — L1 的  branch
+// bright_magenta   — L3 预算分母（limit，如 $500 / $0.50）
+// bright_cyan      — L3 预算分子（usage，如 $415.58 / $0.33）
+// bright_yellow    — L3 的  $cost（CCR 估算花费）
+// bright_red       — L2 的 󰚩 model
 const C = {
   reset:           "\x1b[0m",
   dim:             "\x1b[2m",
@@ -40,8 +42,10 @@ const C = {
   yellow:          "\x1b[33m",
   red:             "\x1b[31m",
   bright_blue:     "\x1b[94m",
+  bright_green:    "\x1b[92m",
   bright_magenta:  "\x1b[95m",
   bright_cyan:     "\x1b[96m",
+  bright_yellow:   "\x1b[93m",
   bright_red:      "\x1b[91m",
 };
 
@@ -204,7 +208,7 @@ function mod(icon, text, color) {
 function formatPathLine(v) {
   const parts = [];
   parts.push(mod("\u{F024B}", v.workDirName, "bright_blue"));
-  parts.push(mod("\u{E725}",  v.gitBranch,   "bright_magenta"));
+  parts.push(mod("\u{E725}",  v.gitBranch,   "bright_green"));
   return parts.filter(Boolean).join("  ");
 }
 
@@ -212,7 +216,7 @@ function formatPathLine(v) {
 function formatModelLine(v) {
   const parts = [];
   parts.push(`${C.dim}├${C.reset}`);
-  parts.push(mod("\u{F06A9}", shortenModel(v.model), "bright_cyan"));
+  parts.push(mod("\u{F06A9}", shortenModel(v.model), "bright_red"));
   return parts.filter(Boolean).join("  ");
 }
 
@@ -221,11 +225,11 @@ function formatModelLine(v) {
 function formatCostLine(v, results) {
   const parts = [];
   parts.push(`${C.dim}├${C.reset}`);
-  parts.push(mod("\u{F155}", v.cost, "bright_red"));
+  parts.push(mod("\u{F155}", v.cost, "bright_yellow"));
   if (results.length > 0) {
     const budgets = results.map(({ name, info }) => {
       if (!info) return `${name}: (err)`;
-      return `${name}: ${fmtMoney(info.usage)} / ${fmtLimit(info.limit)}`;
+      return `${name}: ${C.bright_cyan}${fmtMoney(info.usage)}${C.reset} / ${C.bright_magenta}${fmtLimit(info.limit)}${C.reset}`;
     });
     parts.push(budgets.join("  "));
   }

@@ -47,9 +47,11 @@ interface StatuslineInput {
 // dim              — L2/L3/L4 前缀 ├ / └ 的树形符
 // green/yellow/red — L4 tokens 数字 + 进度条按 ≤60/≤80/>80 阈值染色；usage tracking 状态
 // bright_blue      — L1 的 󰉋 workDir
-// bright_magenta   — L1 的  branch
-// bright_cyan      — L2 的 󰚩 + provider: + model
-// bright_red       — L3 的  $cost 实际花费
+// bright_green     — L1 的  branch
+// bright_magenta   — L3 预算分母（limit，如 $500 / $0.50）
+// bright_cyan      — L3 预算分子（usage，如 $416.61 / $0.33）
+// bright_yellow    — L3 的  $cost 实际花费 / CCR 估算花费
+// bright_red       — L2 的 󰚩 + provider: + model
 const C = {
   reset: '\x1b[0m',
   dim: '\x1b[2m',
@@ -57,8 +59,10 @@ const C = {
   yellow: '\x1b[33m',
   red: '\x1b[31m',
   bright_blue: '\x1b[94m',
+  bright_green: '\x1b[92m',
   bright_magenta: '\x1b[95m',
   bright_cyan: '\x1b[96m',
+  bright_yellow: '\x1b[93m',
   bright_red: '\x1b[91m',
 };
 
@@ -295,10 +299,10 @@ async function main(): Promise<void> {
   const workDir = basename(cwd) || cwd;
   const branch = gitBranch(cwd);
 
-  // OpenRouter key 预算
+  // OpenRouter key 预算（usage 染 bright_cyan；limit 染 bright_magenta；斜杠默认色）
   const keyInfo = await fetchKeyInfo(apiKey);
   const budgetStr = keyInfo
-    ? `$${keyInfo.usage.toFixed(2)} / ${keyInfo.limit !== null ? `$${keyInfo.limit.toFixed(0)}` : '∞'}`
+    ? `${C.bright_cyan}$${keyInfo.usage.toFixed(2)}${C.reset} / ${C.bright_magenta}${keyInfo.limit !== null ? `$${keyInfo.limit.toFixed(0)}` : '∞'}${C.reset}`
     : '';
 
   // tokens & 进度条（用量 + 10 格进度条，染色阈值跟 ccr-append.js 对齐）
@@ -324,16 +328,16 @@ async function main(): Promise<void> {
   // L1：󰉋 workDir   main（workDir 亮蓝、branch 亮洋红）
   const line1Parts: string[] = [];
   if (workDir) line1Parts.push(`${C.bright_blue}\u{F024B} ${workDir}${C.reset}`);
-  if (branch) line1Parts.push(`${C.bright_magenta}\u{E725} ${branch}${C.reset}`);
+  if (branch) line1Parts.push(`${C.bright_green}\u{E725} ${branch}${C.reset}`);
   const line1 = line1Parts.join('  ');
 
   // L2：├ 󰚩 provider: model（图标 + provider + model 都用 bright_cyan）
-  const providerPart = state.last_provider ? `${C.bright_cyan}${state.last_provider}:${C.reset} ` : '';
-  const modelPart = shortModel ? `${C.bright_cyan}${shortModel}${C.reset}` : '';
-  const line2 = `${C.dim}├${C.reset}  ${C.bright_cyan}\u{F06A9}${C.reset} ${providerPart}${modelPart}`;
+  const providerPart = state.last_provider ? `${C.bright_red}${state.last_provider}:${C.reset} ` : '';
+  const modelPart = shortModel ? `${C.bright_red}${shortModel}${C.reset}` : '';
+  const line2 = `${C.dim}├${C.reset}  ${C.bright_red}\u{F06A9}${C.reset} ${providerPart}${modelPart}`;
 
   // L3：├   $cost / $discount    $usage / $limit
-  const costStr = `${C.bright_red} $${state.total_cost.toFixed(4)}${C.reset}` +
+  const costStr = `${C.bright_yellow} $${state.total_cost.toFixed(4)}${C.reset}` +
     ` / $${state.total_cache_discount.toFixed(2)}`;
   const line3Parts: string[] = [`${C.dim}├${C.reset}`, costStr];
   if (budgetStr) line3Parts.push(budgetStr);
