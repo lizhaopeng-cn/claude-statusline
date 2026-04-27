@@ -4,7 +4,7 @@
  *   第 1 行（目录）： 󰉋 workDir   main
  *   第 2 行（模型）： ├ 󰚩 model
  *   第 3 行（花费）： ├  cost  or: … / …  or1: … / …
- *   第 4 行（用量）： └ ↑in  ↓out  󰉍 used / total (pct%)  ██░░░░░░░░
+ *   第 4 行（用量）： └ 󰉍 used / total (pct%)  ██░░░░░░░░
  *
  * 已知限制：Claude Code 2.1.119 的 statusLine 渲染外层是 <Text wrap="truncate">，
  * Ink 5 的 truncate 模式遇到 '\n' 会把后续行整段丢掉，只渲染第 1 行。所以窄窗口下
@@ -232,15 +232,12 @@ function formatCostLine(v, results) {
   return parts.filter(Boolean).join("  ");
 }
 
-// 第 4 行（用量）：└  ↑in  ↓out  󰉍 used / total (pct%)  ██░░░░░░░░
+// 第 4 行（用量）：└  󰉍 used / total (pct%)  ██░░░░░░░░
 // used 按 contextPercent × total 反推，跟 /context 面板对齐。
 // 染色阈值：≤60 绿 / ≤80 黄 / >80 红（tokens 数字和进度条同色）。
 function formatUsageLine(v) {
   const parts = [];
   parts.push(`${C.dim}└${C.reset}`);
-
-  parts.push(mod("↑", v.inputTokens,  "bright_green"));
-  parts.push(mod("↓", v.outputTokens, "orange"));
 
   const totalRaw = parseNum(v.contextWindowSize);
   const total = totalRaw > 0 ? totalRaw : 200_000;
