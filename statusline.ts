@@ -42,7 +42,14 @@ interface StatuslineInput {
   };
 }
 
-// ── 颜色常量（跟 ccr-append.js 对齐）
+// ── 颜色常量（跟 ccr-append.js 对齐；只保留实际用到的键）
+// reset            — 所有段尾复位
+// dim              — L2/L3/L4 前缀 ├ / └ 的树形符
+// green/yellow/red — L4 tokens 数字 + 进度条按 ≤60/≤80/>80 阈值染色；usage tracking 状态
+// bright_blue      — L1 的 󰉋 workDir
+// bright_magenta   — L1 的  branch
+// bright_cyan      — L2 的 󰚩 + provider: + model
+// bright_red       — L3 的  $cost 实际花费
 const C = {
   reset: '\x1b[0m',
   dim: '\x1b[2m',
@@ -53,7 +60,6 @@ const C = {
   bright_magenta: '\x1b[95m',
   bright_cyan: '\x1b[96m',
   bright_red: '\x1b[91m',
-  orange: '\x1b[38;5;208m',
 };
 
 function gitBranch(cwd: string): string {

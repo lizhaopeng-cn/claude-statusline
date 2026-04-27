@@ -25,24 +25,24 @@ const CACHE_TTL_MS = 20_000;
 // 每次状态栏刷新都会追加一条到 /tmp/ccr-append-debug.log
 const DEBUG_DUMP = false;
 
-// ── ANSI 颜色（bright_* 用 9x 序列，对应 CCR modules 的 bright_blue / bright_magenta / ...）
+// ── ANSI 颜色（只保留实际用到的键，跟 statusline.ts 对齐）
+// reset            — 所有段尾复位
+// dim              — L2/L3/L4 前缀 ├ / └ 的树形符
+// green/yellow/red — L4 tokens 数字 + 进度条按 ≤60/≤80/>80 阈值染色
+// bright_blue      — L1 的 󰉋 workDir
+// bright_magenta   — L1 的  branch
+// bright_cyan      — L2 的 󰚩 model
+// bright_red       — L3 的  $cost（CCR 估算花费）
 const C = {
   reset:           "\x1b[0m",
   dim:             "\x1b[2m",
   green:           "\x1b[32m",
   yellow:          "\x1b[33m",
   red:             "\x1b[31m",
-  cyan:            "\x1b[36m",
-  magenta:         "\x1b[35m",
-  white:           "\x1b[37m",
   bright_blue:     "\x1b[94m",
   bright_magenta:  "\x1b[95m",
   bright_cyan:     "\x1b[96m",
-  bright_yellow:   "\x1b[93m",
-  bright_green:    "\x1b[92m",
   bright_red:      "\x1b[91m",
-  bright_white:    "\x1b[97m",
-  orange:          "\x1b[38;5;208m",
 };
 
 // ── ANSI-aware 单行截断（和 statusline.ts 里的保持一致）
