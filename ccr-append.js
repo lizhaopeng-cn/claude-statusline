@@ -252,7 +252,8 @@ function formatUsageLine(v) {
 
   // 10 格进度条：前 filled 格用 █、剩余用 ░，整体同色。每 10% 算满一格（向下取整）。
   const filled = Math.max(0, Math.min(10, Math.floor(pct / 10)));
-  const bar = "█".repeat(filled) + "░".repeat(10 - filled);
+  // 左已用：▉（U+2589, 7/8 满块，格与格天然有细纹）；右未用：░（U+2591 稀疏点阵）。
+  const bar = "▉".repeat(filled) + "░".repeat(10 - filled);
   parts.push(`${color}${bar}${C.reset}`);
 
   return parts.filter(Boolean).join("  ");

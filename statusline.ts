@@ -321,7 +321,8 @@ async function main(): Promise<void> {
   }
   const usageColor = pct <= 60 ? C.green : pct <= 80 ? C.yellow : C.red;
   const filled = Math.max(0, Math.min(10, Math.floor(pct / 10)));
-  const bar = '█'.repeat(filled) + '░'.repeat(10 - filled);
+  // 左已用：▉（U+2589, 7/8 满块，格与格天然有细纹）；右未用：░（U+2591 稀疏点阵）。
+  const bar = '▉'.repeat(filled) + '░'.repeat(10 - filled);
   const totalText = total > 0 ? fmtTok(total) : '?';
   const usageLine = `${usageColor}\u{F024D} ${fmtTok(used)} / ${totalText} (${pct}%)${C.reset}  ${usageColor}${bar}${C.reset}`;
 
