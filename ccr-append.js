@@ -228,9 +228,9 @@ function formatCostLine(v, results) {
   parts.push(`${C.dim}├${C.reset}`);
   parts.push(mod("\u{F155}", v.cost, "bright_yellow"));
   if (results.length > 0) {
-    const budgets = results.map(({ name, info }) => {
+    const budgets = results.map(({ name, info }, idx) => {
       if (!info) return `${name}: (err)`;
-      const adjustedUsage = Math.max(0, info.usage - usageOffset);
+      const adjustedUsage = idx === 0 ? Math.max(0, info.usage - usageOffset) : info.usage;
       return `${name}: ${C.bright_cyan}${fmtMoney(adjustedUsage)}${C.reset} / ${C.bright_magenta}${fmtLimit(info.limit)}${C.reset}`;
     });
     parts.push(budgets.join("  "));
