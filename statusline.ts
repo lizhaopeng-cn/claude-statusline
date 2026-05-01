@@ -300,9 +300,10 @@ async function main(): Promise<void> {
   const branch = gitBranch(cwd);
 
   // OpenRouter key 预算（usage 染 bright_cyan；limit 染 bright_magenta；斜杠默认色）
+  const usageOffset = parseFloat(process.env.OPENROUTER_USAGE_OFFSET ?? '0') || 0;
   const keyInfo = await fetchKeyInfo(apiKey);
   const budgetStr = keyInfo
-    ? `${C.bright_cyan}$${keyInfo.usage.toFixed(2)}${C.reset} / ${C.bright_magenta}${keyInfo.limit !== null ? `$${keyInfo.limit.toFixed(0)}` : '∞'}${C.reset}`
+    ? `${C.bright_cyan}$${Math.max(0, keyInfo.usage - usageOffset).toFixed(2)}${C.reset} / ${C.bright_magenta}${keyInfo.limit !== null ? `$${keyInfo.limit.toFixed(0)}` : '∞'}${C.reset}`
     : '';
 
   // tokens & 进度条（用量 + 10 格进度条，染色阈值跟 ccr-append.js 对齐）

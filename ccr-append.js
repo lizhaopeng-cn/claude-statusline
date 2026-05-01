@@ -223,13 +223,15 @@ function formatModelLine(v) {
 // 第 3 行（花费）：├   cost  or: $x / $y  or1: $x / $y
 // 用 nerd-font 的 dollar-sign () 代替原 emoji 💰，单列宽度跟其它图标对齐。
 function formatCostLine(v, results) {
+  const usageOffset = parseFloat(process.env.OPENROUTER_USAGE_OFFSET ?? "0") || 0;
   const parts = [];
   parts.push(`${C.dim}├${C.reset}`);
   parts.push(mod("\u{F155}", v.cost, "bright_yellow"));
   if (results.length > 0) {
     const budgets = results.map(({ name, info }) => {
       if (!info) return `${name}: (err)`;
-      return `${name}: ${C.bright_cyan}${fmtMoney(info.usage)}${C.reset} / ${C.bright_magenta}${fmtLimit(info.limit)}${C.reset}`;
+      const adjustedUsage = Math.max(0, info.usage - usageOffset);
+      return `${name}: ${C.bright_cyan}${fmtMoney(adjustedUsage)}${C.reset} / ${C.bright_magenta}${fmtLimit(info.limit)}${C.reset}`;
     });
     parts.push(budgets.join("  "));
   }
