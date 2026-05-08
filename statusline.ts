@@ -21,7 +21,8 @@
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { execSync } from 'node:child_process';
-import { basename } from 'node:path';
+import { basename, join } from 'node:path';
+import { tmpdir } from 'node:os';
 
 interface StatuslineInput {
   session_id: string;
@@ -244,7 +245,7 @@ async function main(): Promise<void> {
     return;
   }
 
-  const statePath = `/tmp/claude-openrouter-cost-${session_id}.json`;
+  const statePath = join(tmpdir(), `claude-openrouter-cost-${session_id}.json`);
   const state = loadState(statePath);
 
   const allIds = extractGenerationIds(transcript_path);

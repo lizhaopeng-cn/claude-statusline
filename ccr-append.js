@@ -18,11 +18,11 @@ const path = require("node:path");
 const os = require("node:os");
 
 const CCR_CONFIG = path.join(os.homedir(), ".claude-code-router", "config.json");
-const CACHE_FILE = "/tmp/ccr-budget-cache.json";
+const CACHE_FILE = path.join(os.tmpdir(), "ccr-budget-cache.json");
 const CACHE_TTL_MS = 20_000;
 
 // 想看 CCR 实际传进来的 variables 是什么样，打开这个开关
-// 每次状态栏刷新都会追加一条到 /tmp/ccr-append-debug.log
+// 每次状态栏刷新都会追加一条到 os.tmpdir()/ccr-append-debug.log
 const DEBUG_DUMP = false;
 
 // ── ANSI 颜色（只保留实际用到的键，跟 statusline.ts 对齐）
@@ -262,7 +262,7 @@ module.exports = async function (variables, options) {
     if (DEBUG_DUMP) {
       try {
         fs.appendFileSync(
-          "/tmp/ccr-append-debug.log",
+          path.join(os.tmpdir(), "ccr-append-debug.log"),
           `[${new Date().toISOString()}]\nvariables=${JSON.stringify(v, null, 2)}\noptions=${JSON.stringify(options, null, 2)}\n---\n`,
         );
       } catch {}
