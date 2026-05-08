@@ -121,7 +121,7 @@ function fmtMoney(n) {
 function fmtLimit(n) {
   if (n === null || n === undefined) return "∞";
   // 整数限额就不带小数点
-  return Number.isInteger(n) ? `$${n}` : `$${Number(n).toFixed(2)}`;
+  return `$${Number(n).toFixed(2)}`;
 }
 
 // ── 从 CCR config 读 providers（name + api_key）

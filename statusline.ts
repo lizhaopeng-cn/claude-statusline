@@ -302,7 +302,7 @@ async function main(): Promise<void> {
   // OpenRouter key 预算（usage 染 bright_cyan；limit 染 bright_magenta；斜杠默认色）
   const keyInfo = await fetchKeyInfo(apiKey);
   const budgetStr = keyInfo
-    ? `${C.bright_cyan}$${keyInfo.usage.toFixed(2)}${C.reset} / ${C.bright_magenta}${keyInfo.limit !== null ? `$${keyInfo.limit.toFixed(0)}` : '∞'}${C.reset}`
+    ? `${C.bright_cyan}$${keyInfo.usage.toFixed(2)}${C.reset} / ${C.bright_magenta}${keyInfo.limit !== null ? `$${keyInfo.limit.toFixed(2)}` : '∞'}${C.reset}`
     : '';
 
   // tokens & 进度条（用量 + 10 格进度条，染色阈值跟 ccr-append.js 对齐）
@@ -338,7 +338,7 @@ async function main(): Promise<void> {
   const line2 = `${C.dim}├${C.reset}  ${C.bright_red}\u{F06A9}${C.reset} ${providerPart}${modelPart}`;
 
   // L3：├   $cost / $discount    $usage / $limit
-  const costStr = `${C.bright_yellow}\u{F01C1} $${state.total_cost.toFixed(4)}${C.reset}` +
+  const costStr = `${C.bright_yellow}\u{F01C1} $${state.total_cost.toFixed(2)}${C.reset}` +
     ` \x1b[9m($${state.total_cache_discount.toFixed(2)})\x1b[29m`;
   const line3Parts: string[] = [`${C.dim}├${C.reset}`, costStr];
   if (budgetStr) line3Parts.push(budgetStr);
