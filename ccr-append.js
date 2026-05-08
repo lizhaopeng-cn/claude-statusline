@@ -3,8 +3,8 @@
  *
  *   第 1 行（目录）： 󰉋 workDir   main
  *   第 2 行（模型）： ├ 󰚩 model
- *   第 3 行（花费）： ├  cost  or: … / …  or1: … / …
- *   第 4 行（用量）： └ 󰉍 used / total (pct%)  ██░░░░░░░░
+ *   第 3 行（花费）： ├ 󰾅 cost  or: … / …  or1: … / …
+ *   第 4 行（用量）： └ 󰾅 used / total (pct%)  ██░░░░░░░░
  *
  * 已知限制：Claude Code 2.1.119 的 statusLine 渲染外层是 <Text wrap="truncate">，
  * Ink 5 的 truncate 模式遇到 '\n' 会把后续行整段丢掉，只渲染第 1 行。所以窄窗口下
@@ -221,12 +221,12 @@ function formatModelLine(v) {
 }
 
 // 第 3 行（花费）：├   cost  or: $x / $y  or1: $x / $y
-// 用 nerd-font 的 dollar-sign () 代替原 emoji 💰，单列宽度跟其它图标对齐。
+// 用 nerd-font 的 dollar-sign (󰇁) 代替原 emoji 💰，单列宽度跟其它图标对齐。
 function formatCostLine(v, results) {
   const usageOffset = parseFloat(process.env.OPENROUTER_USAGE_OFFSET ?? "0") || 0;
   const parts = [];
   parts.push(`${C.dim}├${C.reset}`);
-  parts.push(mod("\u{F155}", v.cost, "bright_yellow"));
+  parts.push(mod("\u{F01C1}", v.cost, "bright_yellow"));
   if (results.length > 0) {
     const budgets = results.map(({ name, info }, idx) => {
       if (!info) return `${name}: (err)`;
@@ -238,7 +238,7 @@ function formatCostLine(v, results) {
   return parts.filter(Boolean).join("  ");
 }
 
-// 第 4 行（用量）：└  󰉍 used / total (pct%)  ██░░░░░░░░
+// 第 4 行（用量）：└  󰾅 used / total (pct%)  ██░░░░░░░░
 // used 按 contextPercent × total 反推，跟 /context 面板对齐。
 // 染色阈值：≤60 绿 / ≤80 黄 / >80 红（tokens 数字和进度条同色）。
 function formatUsageLine(v) {
@@ -250,7 +250,7 @@ function formatUsageLine(v) {
   const pct = Math.round(parseNum(v.contextPercent));
   const used = Math.round((pct / 100) * total);
   const color = pct <= 60 ? C.green : pct <= 80 ? C.yellow : C.red;
-  parts.push(`${color}\u{F024D} ${fmtNum(used)} / ${fmtNum(total)} (${pct}%)${C.reset}`);
+  parts.push(`${color}\u{F0F85} ${fmtNum(used)} / ${fmtNum(total)} (${pct}%)${C.reset}`);
 
   // 10 格进度条：前 filled 格用 █、剩余用 ░，整体同色。每 10% 算满一格（向下取整）。
   const filled = Math.max(0, Math.min(10, Math.floor(pct / 10)));

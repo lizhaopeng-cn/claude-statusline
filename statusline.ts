@@ -325,7 +325,7 @@ async function main(): Promise<void> {
   // 左已用：▉（U+2589, 7/8 满块，格与格天然有细纹）；右未用：░（U+2591 稀疏点阵）。
   const bar = '▉'.repeat(filled) + '░'.repeat(10 - filled);
   const totalText = total > 0 ? fmtTok(total) : '?';
-  const usageLine = `${usageColor}\u{F024D} ${fmtTok(used)} / ${totalText} (${pct}%)${C.reset}  ${usageColor}${bar}${C.reset}`;
+  const usageLine = `${usageColor}\u{F0F85} ${fmtTok(used)} / ${totalText} (${pct}%)${C.reset}  ${usageColor}${bar}${C.reset}`;
 
   // L1：󰉋 workDir   main（workDir 亮蓝、branch 亮洋红）
   const line1Parts: string[] = [];
@@ -339,13 +339,13 @@ async function main(): Promise<void> {
   const line2 = `${C.dim}├${C.reset}  ${C.bright_red}\u{F06A9}${C.reset} ${providerPart}${modelPart}`;
 
   // L3：├   $cost / $discount    $usage / $limit
-  const costStr = `${C.bright_yellow} $${state.total_cost.toFixed(4)}${C.reset}` +
+  const costStr = `${C.bright_yellow}\u{F01C1} $${state.total_cost.toFixed(4)}${C.reset}` +
     ` \x1b[9m($${state.total_cache_discount.toFixed(2)})\x1b[29m`;
   const line3Parts: string[] = [`${C.dim}├${C.reset}`, costStr];
   if (budgetStr) line3Parts.push(budgetStr);
   const line3 = line3Parts.join('  ');
 
-  // L4：└  󰉍 used / total (pct%) ██░░░░░░░░（永远显示，无 context_window 就占位 0 / ?）
+  // L4：└  󰾅 used / total (pct%) ██░░░░░░░░（永远显示，无 context_window 就占位 0 / ?）
   const line4 = `${C.dim}└${C.reset}  ${usageLine}`;
 
   const lines = [line1, line2, line3, line4].filter(Boolean);
