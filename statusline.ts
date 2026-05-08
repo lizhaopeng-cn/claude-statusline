@@ -3,7 +3,10 @@
 /**
  * OpenRouter cost tracking statusline for Claude Code
  *
- * Displays: Provider: model - $cost - cache discount: $saved
+ *   L1： 󰉋 workDir   branch
+ *   L2： ├ 󰚩 provider: model
+ *   L3： ├ 󰇁 $cost ($discount)  $usage_monthly / $limit
+ *   L4： └ 󰾅 used / total (pct%)  ▉▉░░░░░░░░
  *
  * Setup: Add to your ~/.claude/settings.json:
  * {
@@ -197,7 +200,6 @@ function shortModelName(model: string): string {
 interface KeyInfo {
   usage: number;
   limit: number | null;
-  limit_remaining: number | null;
 }
 
 async function fetchKeyInfo(apiKey: string): Promise<KeyInfo | null> {
@@ -212,7 +214,6 @@ async function fetchKeyInfo(apiKey: string): Promise<KeyInfo | null> {
     return {
       usage: data.usage_monthly,
       limit: typeof data.limit === 'number' ? data.limit : null,
-      limit_remaining: typeof data.limit_remaining === 'number' ? data.limit_remaining : null,
     };
   } catch {
     return null;
@@ -284,7 +285,6 @@ async function main(): Promise<void> {
   const ccModel = shortModelName(input?.model?.id ?? '');
   const shortModel = stateModel || ccModel || input?.model?.display_name || '';
 
-  // usage tracking 状态指示
   let statusIndicator = '';
   if (newIds.length > 0) {
     if (fetchFailed === 0) {
@@ -294,7 +294,6 @@ async function main(): Promise<void> {
     }
   }
 
-  // cwd / git branch
   const cwd = input?.cwd ?? input?.workspace?.current_dir ?? process.cwd();
   const workDir = basename(cwd) || cwd;
   const branch = gitBranch(cwd);
@@ -326,7 +325,7 @@ async function main(): Promise<void> {
   const totalText = total > 0 ? fmtTok(total) : '?';
   const usageLine = `${usageColor}\u{F0F85} ${fmtTok(used)} / ${totalText} (${pct}%)${C.reset}  ${usageColor}${bar}${C.reset}`;
 
-  // L1：󰉋 workDir   main（workDir 亮蓝、branch 亮洋红）
+  // L1：󰉋 workDir   main（workDir 亮蓝、branch 亮绿）
   const line1Parts: string[] = [];
   if (workDir) line1Parts.push(`${C.bright_blue}\u{F024B} ${workDir}${C.reset}`);
   if (branch) line1Parts.push(`${C.bright_green}\u{E725} ${branch}${C.reset}`);
@@ -337,14 +336,14 @@ async function main(): Promise<void> {
   const modelPart = shortModel ? `${C.bright_red}${shortModel}${C.reset}` : '';
   const line2 = `${C.dim}├${C.reset}  ${C.bright_red}\u{F06A9}${C.reset} ${providerPart}${modelPart}`;
 
-  // L3：├   $cost / $discount    $usage / $limit
+  // L3：├ 󰇁 $cost ($discount)  $usage_monthly / $limit
   const costStr = `${C.bright_yellow}\u{F01C1} $${state.total_cost.toFixed(2)}${C.reset}` +
     ` \x1b[9m($${state.total_cache_discount.toFixed(2)})\x1b[29m`;
   const line3Parts: string[] = [`${C.dim}├${C.reset}`, costStr];
   if (budgetStr) line3Parts.push(budgetStr);
   const line3 = line3Parts.join('  ');
 
-  // L4：└  󰾅 used / total (pct%) ██░░░░░░░░（永远显示，无 context_window 就占位 0 / ?）
+  // L4：└ 󰾅 used / total (pct%) ▉▉░░░░░░░░（永远显示，无 context_window 就占位 0 / ?）
   const line4 = `${C.dim}└${C.reset}  ${usageLine}`;
 
   const lines = [line1, line2, line3, line4].filter(Boolean);

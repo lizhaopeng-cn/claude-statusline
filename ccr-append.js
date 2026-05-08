@@ -49,7 +49,7 @@ const C = {
   bright_red:      "\x1b[91m",
 };
 
-// ── ANSI-aware 单行截断（和 statusline.ts 里的保持一致）
+// ── ANSI-aware 单行截断
 function visibleLen(s) {
   return s.replace(/\x1b\[[0-9;]*m/g, "").length;
 }
@@ -193,7 +193,6 @@ function shortenModel(m) {
   return String(m).replace(/^[^/]+\//, "").replace(/-\d{8}$/, "");
 }
 
-// 把单个模块渲染成带色彩的 "icon text"；text 为空则返回空串
 function mod(icon, text, color) {
   const t = text == null ? "" : String(text).trim();
   if (!t) return "";
@@ -203,7 +202,6 @@ function mod(icon, text, color) {
 }
 
 // 第 1 行（目录）：󰉋 workDir   main
-// 每个栏目内部：图标 + " " + 文字（1 格）；栏目之间：2 格。
 function formatPathLine(v) {
   const parts = [];
   parts.push(mod("\u{F024B}", v.workDirName, "bright_blue"));
@@ -219,8 +217,7 @@ function formatModelLine(v) {
   return parts.filter(Boolean).join("  ");
 }
 
-// 第 3 行（花费）：├   cost  or: $x / $y  or1: $x / $y
-// 用 nerd-font 的 dollar-sign (󰇁) 代替原 emoji 💰，单列宽度跟其它图标对齐。
+// 第 3 行（花费）：├ 󰇁 cost  name: $usage / $limit  …
 function formatCostLine(v, results) {
   const parts = [];
   parts.push(`${C.dim}├${C.reset}`);
@@ -249,7 +246,7 @@ function formatUsageLine(v) {
   const color = pct <= 50 ? C.green : pct <= 75 ? C.yellow : C.red;
   parts.push(`${color}\u{F0F85} ${fmtNum(used)} / ${fmtNum(total)} (${pct}%)${C.reset}`);
 
-  // 10 格进度条：前 filled 格用 █、剩余用 ░，整体同色。每 10% 算满一格（向下取整）。
+  // 10 格进度条：前 filled 格用 ▉、剩余用 ░，整体同色。每 10% 算满一格（向下取整）。
   const filled = Math.max(0, Math.min(10, Math.floor(pct / 10)));
   // 左已用：▉（U+2589, 7/8 满块，格与格天然有细纹）；右未用：░（U+2591 稀疏点阵）。
   const bar = "▉".repeat(filled) + "░".repeat(10 - filled);
@@ -271,7 +268,7 @@ module.exports = async function (variables, options) {
       } catch {}
     }
 
-    const [results] = await Promise.all([getAllBudgets()]);
+    const results = await getAllBudgets();
 
     const cols = getTermCols();
     const lines = [
