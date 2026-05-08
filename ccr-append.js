@@ -163,9 +163,9 @@ async function fetchKeyInfo(apiKey) {
     if (!res.ok) return null;
     const j = await res.json();
     const d = j?.data;
-    if (!d || typeof d.usage !== "number") return null;
+    if (!d || typeof d.usage_monthly !== "number") return null;
     return {
-      usage: d.usage,
+      usage: d.usage_monthly,
       limit: typeof d.limit === "number" ? d.limit : null,
     };
   } catch {
@@ -223,15 +223,13 @@ function formatModelLine(v) {
 // 第 3 行（花费）：├   cost  or: $x / $y  or1: $x / $y
 // 用 nerd-font 的 dollar-sign (󰇁) 代替原 emoji 💰，单列宽度跟其它图标对齐。
 function formatCostLine(v, results) {
-  const usageOffset = parseFloat(process.env.OPENROUTER_USAGE_OFFSET ?? "0") || 0;
   const parts = [];
   parts.push(`${C.dim}├${C.reset}`);
   parts.push(mod("\u{F01C1}", v.cost, "bright_yellow"));
   if (results.length > 0) {
-    const budgets = results.map(({ name, info }, idx) => {
+    const budgets = results.map(({ name, info }) => {
       if (!info) return `${name}: (err)`;
-      const adjustedUsage = idx === 0 ? Math.max(0, info.usage - usageOffset) : info.usage;
-      return `${name}: ${C.bright_cyan}${fmtMoney(adjustedUsage)}${C.reset} / ${C.bright_magenta}${fmtLimit(info.limit)}${C.reset}`;
+      return `${name}: ${C.bright_cyan}${fmtMoney(info.usage)}${C.reset} / ${C.bright_magenta}${fmtLimit(info.limit)}${C.reset}`;
     });
     parts.push(budgets.join("  "));
   }

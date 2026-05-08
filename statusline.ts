@@ -208,9 +208,9 @@ async function fetchKeyInfo(apiKey: string): Promise<KeyInfo | null> {
     if (!res.ok) return null;
     const json = await res.json();
     const data = json?.data;
-    if (!data || typeof data.usage !== 'number') return null;
+    if (!data || typeof data.usage_monthly !== 'number') return null;
     return {
-      usage: data.usage,
+      usage: data.usage_monthly,
       limit: typeof data.limit === 'number' ? data.limit : null,
       limit_remaining: typeof data.limit_remaining === 'number' ? data.limit_remaining : null,
     };
@@ -300,10 +300,9 @@ async function main(): Promise<void> {
   const branch = gitBranch(cwd);
 
   // OpenRouter key 预算（usage 染 bright_cyan；limit 染 bright_magenta；斜杠默认色）
-  const usageOffset = parseFloat(process.env.OPENROUTER_USAGE_OFFSET ?? '0') || 0;
   const keyInfo = await fetchKeyInfo(apiKey);
   const budgetStr = keyInfo
-    ? `${C.bright_cyan}$${Math.max(0, keyInfo.usage - usageOffset).toFixed(2)}${C.reset} / ${C.bright_magenta}${keyInfo.limit !== null ? `$${keyInfo.limit.toFixed(0)}` : '∞'}${C.reset}`
+    ? `${C.bright_cyan}$${keyInfo.usage.toFixed(2)}${C.reset} / ${C.bright_magenta}${keyInfo.limit !== null ? `$${keyInfo.limit.toFixed(0)}` : '∞'}${C.reset}`
     : '';
 
   // tokens & 进度条（用量 + 10 格进度条，染色阈值跟 ccr-append.js 对齐）
