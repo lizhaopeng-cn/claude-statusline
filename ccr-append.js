@@ -3,7 +3,7 @@
  *
  *   第 1 行（目录）： 󰉋 workDir   main
  *   第 2 行（模型）： ├ 󰚩 model
- *   第 3 行（花费）： ├ 󰾅 cost  or: … / …  or1: … / …
+ *   第 3 行（花费）： ├ 󰇁 cost  or: … / …  or1: … / …
  *   第 4 行（用量）： └ 󰾅 used / total (pct%)  ██░░░░░░░░
  *
  * 已知限制：Claude Code 2.1.119 的 statusLine 渲染外层是 <Text wrap="truncate">，
@@ -28,7 +28,7 @@ const DEBUG_DUMP = false;
 // ── ANSI 颜色（只保留实际用到的键，跟 statusline.ts 对齐）
 // reset            — 所有段尾复位
 // dim              — L2/L3/L4 前缀 ├ / └ 的树形符
-// green/yellow/red — L4 tokens 数字 + 进度条按 ≤60/≤80/>80 阈值染色
+// green/yellow/red — L4 tokens 数字 + 进度条按 ≤50/≤75/>75 阈值染色
 // bright_blue      — L1 的 󰉋 workDir
 // bright_green     — L1 的  branch
 // bright_magenta   — L3 预算分母（limit，如 $500 / $0.50）
@@ -120,7 +120,6 @@ function fmtMoney(n) {
 
 function fmtLimit(n) {
   if (n === null || n === undefined) return "∞";
-  // 整数限额就不带小数点
   return `$${Number(n).toFixed(2)}`;
 }
 
@@ -238,7 +237,7 @@ function formatCostLine(v, results) {
 
 // 第 4 行（用量）：└  󰾅 used / total (pct%)  ██░░░░░░░░
 // used 按 contextPercent × total 反推，跟 /context 面板对齐。
-// 染色阈值：≤60 绿 / ≤80 黄 / >80 红（tokens 数字和进度条同色）。
+// 染色阈值：≤50 绿 / ≤75 黄 / >75 红（tokens 数字和进度条同色）。
 function formatUsageLine(v) {
   const parts = [];
   parts.push(`${C.dim}└${C.reset}`);
@@ -247,7 +246,7 @@ function formatUsageLine(v) {
   const total = totalRaw > 0 ? totalRaw : 200_000;
   const pct = Math.round(parseNum(v.contextPercent));
   const used = Math.round((pct / 100) * total);
-  const color = pct <= 60 ? C.green : pct <= 80 ? C.yellow : C.red;
+  const color = pct <= 50 ? C.green : pct <= 75 ? C.yellow : C.red;
   parts.push(`${color}\u{F0F85} ${fmtNum(used)} / ${fmtNum(total)} (${pct}%)${C.reset}`);
 
   // 10 格进度条：前 filled 格用 █、剩余用 ░，整体同色。每 10% 算满一格（向下取整）。

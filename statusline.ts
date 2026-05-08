@@ -45,7 +45,7 @@ interface StatuslineInput {
 // ── 颜色常量（跟 ccr-append.js 对齐；只保留实际用到的键）
 // reset            — 所有段尾复位
 // dim              — L2/L3/L4 前缀 ├ / └ 的树形符
-// green/yellow/red — L4 tokens 数字 + 进度条按 ≤60/≤80/>80 阈值染色；usage tracking 状态
+// green/yellow/red — L4 tokens 数字 + 进度条按 ≤50/≤75/>75 阈值染色；usage tracking 状态
 // bright_blue      — L1 的 󰉋 workDir
 // bright_green     — L1 的  branch
 // bright_magenta   — L3 预算分母（limit，如 $500 / $0.50）
@@ -319,7 +319,7 @@ async function main(): Promise<void> {
     total = cw.context_window_size;
     pct = Math.round((used / total) * 100);
   }
-  const usageColor = pct <= 60 ? C.green : pct <= 80 ? C.yellow : C.red;
+  const usageColor = pct <= 50 ? C.green : pct <= 75 ? C.yellow : C.red;
   const filled = Math.max(0, Math.min(10, Math.floor(pct / 10)));
   // 左已用：▉（U+2589, 7/8 满块，格与格天然有细纹）；右未用：░（U+2591 稀疏点阵）。
   const bar = '▉'.repeat(filled) + '░'.repeat(10 - filled);
@@ -332,7 +332,7 @@ async function main(): Promise<void> {
   if (branch) line1Parts.push(`${C.bright_green}\u{E725} ${branch}${C.reset}`);
   const line1 = line1Parts.join('  ');
 
-  // L2：├ 󰚩 provider: model（图标 + provider + model 都用 bright_cyan）
+  // L2：├ 󰚩 provider: model（图标 + provider + model 都用 bright_red）
   const providerPart = state.last_provider ? `${C.bright_red}${state.last_provider}:${C.reset} ` : '';
   const modelPart = shortModel ? `${C.bright_red}${shortModel}${C.reset}` : '';
   const line2 = `${C.dim}├${C.reset}  ${C.bright_red}\u{F06A9}${C.reset} ${providerPart}${modelPart}`;
