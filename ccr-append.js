@@ -123,10 +123,43 @@ function fmtLimit(n) {
   return `$${Number(n).toFixed(2)}`;
 }
 
+// 剥离 JSON5 风格的注释：// 行尾 和 /* ... */ 块。CCR 自己的配置常带 // 注释，
+// 标准 JSON.parse 拒绝它们，但 statusline 不想为此挂掉。
+function stripJsonComments(s) {
+  let out = "";
+  let i = 0;
+  const n = s.length;
+  let inString = false;
+  let quote = "";
+  while (i < n) {
+    const c = s[i];
+    const c2 = s[i + 1];
+    if (inString) {
+      out += c;
+      if (c === "\\" && i + 1 < n) { out += s[i + 1]; i += 2; continue; }
+      if (c === quote) inString = false;
+      i++;
+      continue;
+    }
+    if (c === '"' || c === "'") { inString = true; quote = c; out += c; i++; continue; }
+    if (c === "/" && c2 === "/") { while (i < n && s[i] !== "\n") i++; continue; }
+    if (c === "/" && c2 === "*") {
+      i += 2;
+      while (i < n && !(s[i] === "*" && s[i + 1] === "/")) i++;
+      i += 2;
+      continue;
+    }
+    out += c;
+    i++;
+  }
+  return out;
+}
+
 // ── 从 CCR config 读 providers（name + api_key）
 function readCcrProviders() {
   try {
-    const j = JSON.parse(fs.readFileSync(CCR_CONFIG, "utf-8"));
+    const raw = fs.readFileSync(CCR_CONFIG, "utf-8");
+    const j = JSON.parse(stripJsonComments(raw));
     const providers = Array.isArray(j.Providers) ? j.Providers : [];
     return providers
       .filter((p) => p && p.name && p.api_key)
